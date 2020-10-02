@@ -135,7 +135,7 @@ def main():
     # ---------Excel Operation---------------------------------
     column_to_read = "C"
     column_to_write = "D"
-    row_to_start = "339"
+    row_to_start = "2"
     row_to_end =""
     excel_operation = Excel_Operation(file_name, r"LIST POT 2020")
     excel_operation.load_workbook_with_sheet_name()
@@ -193,8 +193,8 @@ def main():
                     # take out the active one and do comparison with the excel if same , then write active if not same then write latest one
                     if i[1] == "Active":
                         excel_operation.cell_to_write(column_to_write, row_to_start, "Active")
-
                         break
+                    else: pass
                 else:  # this is not active one
                     # look for the active
                     if i[1] == "Active" or i[1] == "Standard Support":
@@ -209,7 +209,7 @@ def main():
                 print("Clear button Clicked")
                 row_to_start = int(row_to_start) + 1
                 row_to_start = str(row_to_start)
-                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_2.xlsx") #Save content
+                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_3.xlsx") #Save content
                 successfully = False
     echo.teardown()
 
