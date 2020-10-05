@@ -214,8 +214,9 @@ def main():
                         excel_operation.cell_to_write(column_to_write, row_to_start, "Active")
                         excel_operation.add_in_color(column_to_write, row_to_start)
                         break
-                    else:
-                        pass
+                    else:  # able to search but not in active list
+                        # show it as what status
+                        excel_operation.cell_to_write(column_to_write, row_to_start, i[1])
                 else:  # this is not active one
                     # look for the active
                     if i[1] == "Active" or i[1] == "Standard Support" or i[1] == "LTB" or i[1] == "Final Production":
