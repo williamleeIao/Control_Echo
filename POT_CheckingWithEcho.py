@@ -2,16 +2,24 @@ from selenium import webdriver
 from time import sleep, time
 from bs4 import BeautifulSoup
 import openpyxl
+from openpyxl.styles import Color, PatternFill
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
 import re
-from bs4.element import NavigableString, Tag
-from datetime import datetime, date
+
 import functools
 
-
 file_name = r"C:\Users\willlee\Downloads\LIST POT 2020.xlsx"
+PATH = "C:\Program Files (x86)\chromedriver.exe"
 
 
 class Excel_Operation:
+
+    def add_in_color(self, column_to_write, row_to_start):
+        write_position = column_to_write + row_to_start
+        self.work_sheet[write_position].fill = self.greenfile
 
     def replace_alphabet(self, text):
         return re.sub(r'[a-zA-Z]', r'*', text)
@@ -19,6 +27,7 @@ class Excel_Operation:
     def __init__(self, file_name, sheet_name):
         self.file_name = file_name
         self.sheet_name = sheet_name
+        self.greenfile = PatternFill(start_color='008000', end_color='008000', fill_type='solid')
 
     def load_workbook_with_sheet_name(self):
         self.book = openpyxl.load_workbook(self.file_name)
@@ -27,13 +36,15 @@ class Excel_Operation:
     def cell_to_read(self, column_to_read, row_to_start):
         # This function is assumed both read and write having the same row thus just have one row_to_start variable
         read_position = column_to_read + row_to_start  # C2
-
-        text = self.work_sheet[read_position].value
-        new_string = self.replace_alphabet(text)
-        # replace last character back
-        new_string = new_string[:-1] + text[-1]
-        print(new_string)
-        return new_string, text
+        try:
+            text = self.work_sheet[read_position].value
+            new_string = self.replace_alphabet(text)
+            # replace last character back
+            new_string = new_string[:-1] + text[-1]
+            print(new_string)
+            return new_string, text
+        except:
+            return "","" # return empty string
 
     def cell_to_write(self, column_to_write, row_to_start, value_to_write_in):
         write_position = column_to_write + row_to_start  # D2
@@ -46,9 +57,10 @@ class Excel_Operation:
 class webpage_Extract:
     # load the library from website
     def webpage_refresh(self, driver):
-        sleep(3)
+        sleep(1)
+        # memory error for firefox
         page_source = driver.page_source
-        sleep(3)
+        sleep(1)
         soup = BeautifulSoup(page_source, 'lxml')
         self.soup = soup
         self.driver = driver
@@ -80,7 +92,7 @@ class webpage_Extract:
 class Control_Echo:
 
     def __init__(self):
-        self.driver = webdriver.Firefox()
+        self.driver = webdriver.Chrome(PATH)
         print('init')
 
     def launch_address(self, address):
@@ -102,8 +114,12 @@ class Control_Echo:
             print("match nothing")
             return False
 
-    def buffer_time(self, value):
-        sleep(value)
+    def buffer_time(self, timeOut_value):
+        w = WebDriverWait(self.driver, timeOut_value)
+        w.until(ec.presence_of_element_located((By.ID, "contenttablejqxGrid")))
+
+    def wait(self,wait_time):
+        self.driver.implicitly_wait(wait_time)
 
     @property
     def get_driver(self):
@@ -114,6 +130,7 @@ class Control_Echo:
         self.driver.close()
         self.driver.quit()
         print("Finished")
+
 
 # put an decorator for time recording
 def logging_time(func):
@@ -127,6 +144,7 @@ def logging_time(func):
 
     return wrapper_time
 
+
 @logging_time
 def main():
     successfully = False
@@ -136,34 +154,35 @@ def main():
     column_to_read = "C"
     column_to_write = "D"
     row_to_start = "2"
-    row_to_end =""
+    row_to_end = ""
     excel_operation = Excel_Operation(file_name, r"LIST POT 2020")
     excel_operation.load_workbook_with_sheet_name()
     # ---------Webpage Operation-------------------------------
     echo = Control_Echo()  # init webdriver
     # ---------------------------------------------------------
     echo.launch_address('https://echo.natinst.com/')
-    echo.buffer_time(10)
+
     print('opened Echo')
+    echo.wait(5)
     successfully = echo.webpage_control(id_name='i0116', action='write',
                                         value='william.lee@ni.com')
     if successfully:
         print("Email Id Entered")
         successfully = False
-    echo.buffer_time(5)
+    echo.wait(5)
 
     successfully = echo.webpage_control(id_name='idSIButton9', action='click')
     if successfully:
         print("Button Pressed")
         successfully = False
-    echo.buffer_time(5)
+    echo.wait(5)
 
     print("User need to enter email and password id at the message box due to no way to control")
     input("Once Enter , press any key to continue")
-    echo.buffer_time(10)
+    echo.wait(5)
 
     while True:
-        print (row_to_start)
+        print(row_to_start)
         wild_char_text, text = excel_operation.cell_to_read(column_to_read, row_to_start)
         if text == "":
             break
@@ -174,14 +193,14 @@ def main():
             if successfully:
                 print("Part Number Entered")
                 successfully = False
-            echo.buffer_time(3)
+            echo.wait(10)
 
             successfully = echo.webpage_control(id_name='searchButton', action='click')
             if successfully:
                 print("Search button Clicked")
                 successfully = False
 
-            echo.buffer_time(4)
+            echo.buffer_time(5)
 
             # driver = echo.get_driver()
             soup = webpage_ext.webpage_refresh(echo.driver)
@@ -193,15 +212,25 @@ def main():
                     # take out the active one and do comparison with the excel if same , then write active if not same then write latest one
                     if i[1] == "Active":
                         excel_operation.cell_to_write(column_to_write, row_to_start, "Active")
+                        excel_operation.add_in_color(column_to_write, row_to_start)
                         break
-                    else: pass
+                    else:
+                        pass
                 else:  # this is not active one
                     # look for the active
-                    if i[1] == "Active" or i[1] == "Standard Support":
+                    if i[1] == "Active" or i[1] == "Standard Support" or i[1] == "LTB" or i[1] == "Final Production":
                         if i[1] == "Active":
                             statement = "Active part number is " + i[0]
-                        if i[1] == "Standard Support":
+                        elif i[1] == "Standard Support":
                             statement = "Standard Support part number is " + i[0]
+                        elif i[1] == "LTB":
+                            statement = "LTB part number is " + i[0]
+                        elif i[1] == "Final Production":
+                            statement = "Final Production part number is " + i[0]
+                        elif i[1] == "Preliminary":
+                            statement = "Preliminary part number is " + i[0]
+                        else:
+                            statement = ""
                         excel_operation.cell_to_write(column_to_write, row_to_start, statement)
 
             successfully = echo.webpage_control(id_name='clearSearchButton', action='click')
@@ -209,7 +238,7 @@ def main():
                 print("Clear button Clicked")
                 row_to_start = int(row_to_start) + 1
                 row_to_start = str(row_to_start)
-                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_3.xlsx") #Save content
+                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_0.xlsx")  # Save content
                 successfully = False
     echo.teardown()
 
