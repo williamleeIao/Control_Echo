@@ -17,9 +17,14 @@ PATH = "C:\Program Files (x86)\chromedriver.exe"
 
 class Excel_Operation:
 
-    def add_in_color(self, column_to_write, row_to_start):
+    def add_in_color(self, column_to_write, row_to_start, color):
         write_position = column_to_write + row_to_start
-        self.work_sheet[write_position].fill = self.greenfile
+        if color == 'Green':
+            self.work_sheet[write_position].fill = self.greenfile
+        elif color == 'Yellow':
+            self.work_sheet[write_position].fill = self.yellowfile
+        else:
+            self.work_sheet[write_position].fill = self.redfile
 
     def replace_alphabet(self, text):
         return re.sub(r'[a-zA-Z]', r'*', text)
@@ -27,7 +32,9 @@ class Excel_Operation:
     def __init__(self, file_name, sheet_name):
         self.file_name = file_name
         self.sheet_name = sheet_name
-        self.greenfile = PatternFill(start_color='008000', end_color='008000', fill_type='solid')
+        self.greenfile = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+        self.yellowfile = PatternFill(start_color='008000', end_color='008000', fill_type='solid')
+        self.redfile = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
 
     def load_workbook_with_sheet_name(self):
         self.book = openpyxl.load_workbook(self.file_name)
@@ -38,13 +45,13 @@ class Excel_Operation:
         read_position = column_to_read + row_to_start  # C2
         try:
             text = self.work_sheet[read_position].value
+            # expected new string ABCDEF*-01*
             new_string = self.replace_alphabet(text)
             # replace last character back
-            new_string = new_string[:-1] + text[-1]
             print(new_string)
             return new_string, text
         except:
-            return "","" # return empty string
+            return "", ""  # return empty string
 
     def cell_to_write(self, column_to_write, row_to_start, value_to_write_in):
         write_position = column_to_write + row_to_start  # D2
@@ -88,6 +95,16 @@ class webpage_Extract:
             oneD_array = []
         return twoD_array
 
+    def convert_list_to_dict(self, twoD_list):
+        # 1. look for unique value in 2D list
+        list_to_dict = {}
+        unique_value = list(set([i[1] for i in twoD_list]))
+        # create key for the dictionary and empty list
+        for element in unique_value:
+            list_element = [i[0] for i in twoD_list if i[1] == element]
+            list_to_dict[element] = list_element
+        return list_to_dict
+
 
 class Control_Echo:
 
@@ -118,7 +135,7 @@ class Control_Echo:
         w = WebDriverWait(self.driver, timeOut_value)
         w.until(ec.presence_of_element_located((By.ID, "contenttablejqxGrid")))
 
-    def wait(self,wait_time):
+    def wait(self, wait_time):
         self.driver.implicitly_wait(wait_time)
 
     @property
@@ -145,8 +162,13 @@ def logging_time(func):
     return wrapper_time
 
 
+def look_for_any_lifecycle(dictionary, life_cycle):
+    return dictionary[life_cycle]
+
+
 @logging_time
 def main():
+    list_life_cycle = ['Active', 'Standard Support', 'LTB', 'Preliminary', 'Discontinued']
     successfully = False
     # ----------Webpage Operation-------------------------------
     webpage_ext = webpage_Extract()
@@ -154,7 +176,7 @@ def main():
     column_to_read = "C"
     column_to_write = "D"
     row_to_start = "2"
-    row_to_end = ""
+    row_to_end = "300"
     excel_operation = Excel_Operation(file_name, r"LIST POT 2020")
     excel_operation.load_workbook_with_sheet_name()
     # ---------Webpage Operation-------------------------------
@@ -182,6 +204,7 @@ def main():
     echo.wait(5)
 
     while True:
+        # for i in range(row_to_start,row_to_end,1):
         print(row_to_start)
         wild_char_text, text = excel_operation.cell_to_read(column_to_read, row_to_start)
         if text == "":
@@ -193,53 +216,151 @@ def main():
             if successfully:
                 print("Part Number Entered")
                 successfully = False
-            echo.wait(10)
+            echo.wait(5)
+
+            successfully = echo.webpage_control(id_name='lifecycleCheckbox972', action='click')
+            if successfully:
+                print("Discontinued Checked")
+                successfully = False
+            echo.wait(3)
 
             successfully = echo.webpage_control(id_name='searchButton', action='click')
             if successfully:
                 print("Search button Clicked")
                 successfully = False
 
-            echo.buffer_time(5)
+            echo.buffer_time(3)
 
             # driver = echo.get_driver()
             soup = webpage_ext.webpage_refresh(echo.driver)
             two_d_list = webpage_ext.check_all(0, 5)
-
-            # do what? if it look for most active Check if active same with the text need to take part number to check whether it is active
-            for i in two_d_list:
-                if i[0] == text:  # word might not correct
-                    # take out the active one and do comparison with the excel if same , then write active if not same then write latest one
-                    if i[1] == "Active":
+            # from table whcih one is active
+            # take out all active put inside dictionary
+            print(two_d_list)
+            unqiue_dictionary_value = webpage_ext.convert_list_to_dict(two_d_list)
+            print(unqiue_dictionary_value)
+            unique_key = list(set(unqiue_dictionary_value))
+            # Rule
+            # 1. look the list and return a list
+            # 2. from list look for the element == text
+            for life_cycle in unique_key:
+                if text in unqiue_dictionary_value[life_cycle]:
+                    if life_cycle == 'Active':
+                        # if active will not show other Active
                         excel_operation.cell_to_write(column_to_write, row_to_start, "Active")
-                        excel_operation.add_in_color(column_to_write, row_to_start)
+                        excel_operation.add_in_color(column_to_write, row_to_start, 'Green')
                         break
-                    else:  # able to search but not in active list
-                        # show it as what status
-                        excel_operation.cell_to_write(column_to_write, row_to_start, i[1])
-                else:  # this is not active one
-                    # look for the active
-                    if i[1] == "Active" or i[1] == "Standard Support" or i[1] == "LTB" or i[1] == "Final Production":
-                        if i[1] == "Active":
-                            statement = "Active part number is " + i[0]
-                        elif i[1] == "Standard Support":
-                            statement = "Standard Support part number is " + i[0]
-                        elif i[1] == "LTB":
-                            statement = "LTB part number is " + i[0]
-                        elif i[1] == "Final Production":
-                            statement = "Final Production part number is " + i[0]
-                        elif i[1] == "Preliminary":
-                            statement = "Preliminary part number is " + i[0]
+                    elif life_cycle == 'Standard Support':
+                        statement = 'Currently at Standard Support. '
+                    elif life_cycle == 'LTB':
+                        statement = 'Currently at LTB. '
+                    elif life_cycle == 'Final Production':
+                        statement = 'Currently at Final Production. '
+                    elif life_cycle == 'Preliminary':
+                        statement = 'Currently at Preliminary. '
+                    elif life_cycle == 'Discontinued':
+                        statement = 'Currently at Discontinued. '
+                    else:
+                        statement = 'No Match.....  check yourself.'
+                    # get back active lifecycle
+                    try:
+                        # suggestion part number with active only #lost the flexibility of suggesting other part number
+                        # basically dictionary should have everything just see how to get
+                        # set rules which one come top (should be get from dictionary Active --> 'Standard Support' --> 'Final Production' --> 'LTB' --> 'Preliminary'
+                        unique_key = list(set(unqiue_dictionary_value))
+                        if "Active" in unique_key:
+                            value = 'Active'
+                        elif "Standard Support" in unique_key:
+                            value = 'Standard Support'
+                        elif "Final Production" in unique_key:
+                            value = 'Final Production'
+                        elif "LTB" in unique_key:
+                            value = 'LTB'
+                        elif "Preliminary" in unique_key:
+                            value = 'Preliminary'
                         else:
-                            statement = ""
-                        excel_operation.cell_to_write(column_to_write, row_to_start, statement)
+                            value = 'Not Found any latest'
+                        statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
+                    except KeyError:
+                        pass
+                    excel_operation.cell_to_write(column_to_write, row_to_start, statement)
+                    break
+                else:
+                    pass
+                    # statement = 'Your part number no Match... Please check yourself.'
+                    # #red line
+                    # excel_operation.cell_to_write(column_to_write, row_to_start, statement)
+                    # excel_operation.add_in_color(column_to_write, row_to_start, 'Red')
+
+            # for key, values in unqiue_dictionary_value.items():
+            #     # value should be a list
+            #     # look for amount of the active
+            #     for value in values:
+            #         if value == text:  # if found the value , don't care in any of lifecycle
+            #             # take out key value
+            #             if key == 'Active':
+            #                 if len(values) > 1:
+            #                     # if more than one values then it should be check the latest one
+            #                     pass
+            #                 else:
+            #                     statement = 'Active'
+            #
+            #                     break
+            #
+            #
+            #  if the key value is active then having 1 only do something
+            #             # else will get the latest one or all
+            #             elif key == 'Standard Support':
+            #                 statement = 'Currently at Standard Support'
+            #                 # get back active lifecycle
+            #                 look_for_any_lifecycle(dictionary, life_cycle)
+            #             elif key == 'LTB':
+            #                 statement = 'Currently at LTB'
+            #             elif key == 'Final Production':
+            #                 statement = 'Currently at Final Production'
+            #             elif key == 'Preliminary':
+            #                 statement = 'Currently at Preliminary'
+            #             elif key == 'Discontinued':
+            #                 statement = 'Currently at  Preliminary'
+            #             else:
+            #                 statement = 'No Match... Please check yourself.'
+            #         else:
+            #             pass
+            #
+            # # do what? if it look for most active Check if active same with the text need to take part number to check whether it is active
+            # for i in two_d_list:
+            #     if i[0] == text:  # if current Part number is in Active Life Cycle
+            #         # take out the active one and do comparison with the excel if same , then write active if not same then write latest one
+            #         if i[1] == "Active":
+            #             excel_operation.cell_to_write(column_to_write, row_to_start, "Active")
+            #             excel_operation.add_in_color(column_to_write, row_to_start)
+            #             break
+            #         else:  # able to search but not in active list
+            #             # show it as what status
+            #             excel_operation.cell_to_write(column_to_write, row_to_start, i[1])
+            #     else:  # this is not active one
+            #         # look for the active
+            #         if i[1] == "Active" or i[1] == "Standard Support" or i[1] == "LTB" or i[1] == "Final Production":
+            #             if i[1] == "Active":
+            #                 statement = "Active part number is " + i[0]
+            #             elif i[1] == "Standard Support":
+            #                 statement = "Standard Support part number is " + i[0]
+            #             elif i[1] == "LTB":
+            #                 statement = "LTB part number is " + i[0]
+            #             elif i[1] == "Final Production":
+            #                 statement = "Final Production part number is " + i[0]
+            #             elif i[1] == "Preliminary":
+            #                 statement = "Preliminary part number is " + i[0]
+            #             else:
+            #                 statement = ""
+            #            excel_operation.cell_to_write(column_to_write, row_to_start, statement)
 
             successfully = echo.webpage_control(id_name='clearSearchButton', action='click')
             if successfully:
                 print("Clear button Clicked")
                 row_to_start = int(row_to_start) + 1
                 row_to_start = str(row_to_start)
-                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_0.xlsx")  # Save content
+                excel_operation.save_file(r"C:\Users\willlee\Downloads\LIST POT 2020_latest.xlsx")  # Save content
                 successfully = False
     echo.teardown()
 
