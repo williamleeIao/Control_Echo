@@ -229,7 +229,7 @@ def main():
                 print("Search button Clicked")
                 successfully = False
 
-            echo.buffer_time(3)
+            echo.buffer_time(10)
 
             # driver = echo.get_driver()
             soup = webpage_ext.webpage_refresh(echo.driver)
@@ -270,27 +270,27 @@ def main():
                         unique_key = list(set(unqiue_dictionary_value))
                         if "Active" in unique_key:
                             value = 'Active'
+                            statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
                         elif "Standard Support" in unique_key:
                             value = 'Standard Support'
+                            statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
                         elif "Final Production" in unique_key:
                             value = 'Final Production'
+                            statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
                         elif "LTB" in unique_key:
                             value = 'LTB'
+                            statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
                         elif "Preliminary" in unique_key:
                             value = 'Preliminary'
+                            statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
                         else:
-                            value = 'Not Found any latest'
-                        statement = statement + value + ' part number is :' + str(unqiue_dictionary_value[value])
+                            pass
                     except KeyError:
                         pass
                     excel_operation.cell_to_write(column_to_write, row_to_start, statement)
                     break
                 else:
                     pass
-                    # statement = 'Your part number no Match... Please check yourself.'
-                    # #red line
-                    # excel_operation.cell_to_write(column_to_write, row_to_start, statement)
-                    # excel_operation.add_in_color(column_to_write, row_to_start, 'Red')
 
             # for key, values in unqiue_dictionary_value.items():
             #     # value should be a list
